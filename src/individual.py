@@ -6,15 +6,17 @@ from sex import Sex
 class Individual:
 
     id = 0
+    year = 0
 
     #region parameters
 
     MINIMUM_MATING_AGE = 0
     MAXIMUM_MATING_AGE = 0
+    OLD_AGE_LIMIT = 0
     MAXIMUM_AGE = 0
     INFECTION_KILL_AGE = 0
     MATING_PROBABILITY = 0
-    DEATH_PROBABILITY_AFTER_MAX_AGE = 0
+    OLD_AGE_DEATH_PROBABILITY = 0
     RANDOM_DEATH_PROBABILITY = 0
     BREAKUP_PROBABILITY = 0
 
@@ -34,7 +36,7 @@ class Individual:
         self.infected = infected
 
         self.id = Individual.id
-        self.id += 1
+        Individual.id += 1
 
         self.first_gen = first_gen
 
@@ -54,8 +56,8 @@ class Individual:
     def can_mate(self) -> bool:
         return self.alive and Individual.MINIMUM_MATING_AGE <= self.age <= Individual.MAXIMUM_MATING_AGE
 
-    @staticmethod
-    def mate(a: 'Individual', b: 'Individual') -> 'Individual':
+    @classmethod
+    def mate(cls, a: 'Individual', b: 'Individual') -> 'Individual':
         if a.sex == b.sex:
             raise ValueError("same sex individuals cannot mate")
 
@@ -67,7 +69,8 @@ class Individual:
             sex=Sex.random_sex(),
             infected=a.infected or b.infected,
             parent1=a,
-            parent2=b
+            parent2=b,
+            year_of_birth=cls.year
         )
 
         a.children.append(child)
@@ -75,13 +78,16 @@ class Individual:
 
         return child
 
-    def mate_with_partner(self) -> bool:
+    def mate_with_partner(self) -> list['Individual']:
         if self.partner is None:
-            return False
+            return []
 
-        self.mate(self, self.partner)
+        try:
+            child = self.mate(self, self.partner)
+        except ValueError as _:
+            return []
 
-        return True
+        return [child]
 
     def infect(self) -> None:
         self.infected = True
@@ -90,37 +96,66 @@ class Individual:
         self.alive = False
         self.break_up()
 
-    def live_year(self) -> None:
+    def live_year(self, pop: list['Individual']) -> dict:
+        result = {
+            'child_count': 0,
+            'broke_up': False
+        }
+
         if not self.alive:
-            return
+            return result
 
-        if self.partner is not None and random_percent() < self.MATING_PROBABILITY:
-            self.mate_with_partner()
+        if self.partner and random.random() < self.MATING_PROBABILITY:
+            children = self.mate_with_partner()
+            pop.extend(children)
+            result['child_count'] = len(children)
 
-        if random_percent() < Individual.BREAKUP_PROBABILITY:
-            self.break_up()
+        if random.random() < Individual.BREAKUP_PROBABILITY:
+            broke_up = self.break_up()
+            result['broke_up'] = broke_up
 
-    def break_up(self) -> None:
-        if self.partner is not None:
+        return result
+
+    def break_up(self) -> bool:
+        if self.partner:
             self.partner.partner = None
             self.partner = None
+            return True
+        return False
 
-    def increase_age(self) -> None:
+    def increase_age(self) -> dict:
+        result = {
+            'died': False
+        }
+
+        if not self.alive:
+            return result
+
         self.age += 1
 
         if self.infected and self.age > Individual.INFECTION_KILL_AGE:
             self.kill()
+            result['died'] = True
 
-        if self.age > Individual.MAXIMUM_AGE and random_percent() < self.DEATH_PROBABILITY_AFTER_MAX_AGE:
+        if self.age > Individual.OLD_AGE_LIMIT and random.random() < self.OLD_AGE_DEATH_PROBABILITY:
             self.kill()
+            result['died'] = True
 
-        if random_percent() < self.RANDOM_DEATH_PROBABILITY:
+        if random.random() < self.RANDOM_DEATH_PROBABILITY:
             self.kill()
+            result['died'] = True
 
+        if self.age > Individual.MAXIMUM_AGE:
+            self.kill()
+            result['died'] = True
+
+        return result
 
     def __repr__(self) -> str:
         return f'Individual {self.id}: age {self.age}, sex: {self.sex}, infected: {self.infected}'
 
+    def __eq__(self, other: 'Individual') -> bool:
+        return self.id == other.id
 
-def random_percent():
-    return random.randint(0, 100)
+    def __hash__(self):
+        return self.id.__hash__()

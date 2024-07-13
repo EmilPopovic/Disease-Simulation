@@ -17,6 +17,12 @@ class Population:
 
     MINIMUM_INITIAL_AGE = 0
     MAXIMUM_INITIAL_AGE = 0
+    MEAN_INITIAL_AGE = 0
+    STD_DEV_INITIAL_AGE = 0
+
+    POTENTIAL_PARTNER_COUNT = 0
+    MAXIMUM_AGE_DIFFERENCE = 0
+    RELATIONSHIP_PROBABILITY = 0
 
     MINIMUM_INCEST_DISTANCE = 0
 
@@ -24,13 +30,36 @@ class Population:
 
     def __init__(self):
         self.population: list[Individual] = []
+        self.yearly_info = {
+            0: {
+                'born_count': 0,
+                'new_relationships': 0,
+                'breakup_count': 0,
+                'death_count': 0,
+                'count_by_age_bin': {
+                    '0-19': 0,
+                    '20-39': 0,
+                    '40-59': 0,
+                    '60-79': 0,
+                    '80-99': 0,
+                    '100+': 0,
+                }
+            }
+        }
 
     #region auto-populating
     @classmethod
     def auto_populated(cls) -> 'Population':
+
+        def random_age():
+            age = -1
+            while age < cls.MINIMUM_INITIAL_AGE or age > cls.MAXIMUM_INITIAL_AGE:
+                age = int(random.gauss(cls.MEAN_INITIAL_AGE, cls.STD_DEV_INITIAL_AGE))
+            return age
+
         def random_individual():
             return Individual(
-                random.randint(cls.MINIMUM_INITIAL_AGE, cls.MAXIMUM_INITIAL_AGE),
+                random_age(),
                 Sex.random_sex(),
                 False,
                 True
@@ -45,6 +74,8 @@ class Population:
         return population
 
     #endregion
+
+    #region simulation logic
 
     @staticmethod
     def distance(ind1: Individual, ind2: Individual, max_depth: int = -1) -> int:
@@ -81,7 +112,7 @@ class Population:
         return -1
 
     def advance_sim(self):
-        self.year += 1
+        Population.year += 1
 
         single: list[Individual] = self.filter_pop(
             lambda
@@ -89,21 +120,52 @@ class Population:
         )
         single.sort(key=lambda x: x.age, reverse=False)
 
+        Individual.year = self.year
+
+        self.yearly_info[self.year] = {
+            'born_count': 0,
+            'new_relationships': 0,
+            'breakup_count': 0,
+            'death_count': 0,
+            'count_by_age_bin': {}
+        }
+
         for i, first in enumerate(single):
-            for j, second in enumerate(single):
+            for j, second in enumerate(random.sample(single, min(Population.POTENTIAL_PARTNER_COUNT, len(single)))):
                 if i == j or first.partner or second.partner:
                     continue
 
-                if self.distance(first, second, self.MINIMUM_INCEST_DISTANCE) == -1 and first.sex != second.sex:
-                    ...
+                distance = self.distance(first, second, Population.MINIMUM_INCEST_DISTANCE)
 
+                if distance < 0 or distance > Population.MINIMUM_INCEST_DISTANCE and first.sex != second.sex:
+                    age_difference = abs(first.age - second.age)
+                    age_diff_factor = max(0.1, 1 - age_difference / Population.MAXIMUM_AGE_DIFFERENCE)
+
+                    if random.random() < age_diff_factor * Population.RELATIONSHIP_PROBABILITY:
+                        first.partner = second
+                        second.partner = first
+                        self.yearly_info[self.year]['new_relationships'] += 1
 
 
         for individual in self.population:
-            individual.live_year()
+            result = individual.live_year(self.population)
+
+            self.yearly_info[self.year]['born_count'] += result['child_count']
+            self.yearly_info[self.year]['breakup_count'] += 1 if result['broke_up'] else 0
 
         for individual in self.population:
-            individual.increase_age()
+            result = individual.increase_age()
+
+            self.yearly_info[self.year]['death_count'] += 1 if result['died'] else 0
+
+        self.yearly_info[self.year]['count_by_age_bin']['0-19'] = self.count_in_pop(lambda x: 0 <= x.age < 20)
+        self.yearly_info[self.year]['count_by_age_bin']['20-39'] = self.count_in_pop(lambda x: 20 <= x.age < 40)
+        self.yearly_info[self.year]['count_by_age_bin']['40-59'] = self.count_in_pop(lambda x: 40 <= x.age < 60)
+        self.yearly_info[self.year]['count_by_age_bin']['60-79'] = self.count_in_pop(lambda x: 60 <= x.age < 80)
+        self.yearly_info[self.year]['count_by_age_bin']['80-99'] = self.count_in_pop(lambda x: 80 <= x.age < 100)
+        self.yearly_info[self.year]['count_by_age_bin']['100+'] = self.count_in_pop(lambda x: x.age > 100)
+
+    #endregion
 
     #region collection-stream-esque stuff
 
@@ -155,6 +217,15 @@ class Population:
         print(f'  infected males: {infected_males}')
         print(f'  infected females: {infected_females}')
         print(f'  infection ratio: {infection_ratio * 100:.2f}%')
+        print()
+
+    def print_yearly_stats(self, year: int, title: str = f'Yearly stats for year {year}') -> None:
+        print(title)
+        print(f'  born count: {self.yearly_info[year]['born_count']}')
+        print(f'  death count: {self.yearly_info[year]['death_count']}')
+        print(f'  new relationships: {self.yearly_info[year]['new_relationships']}')
+        print(f'  breakup count: {self.yearly_info[year]['breakup_count']}')
+        print()
 
     def __repr__(self):
         return f'Population:\n{'\n'.join([f'  {individual}' for individual in self.population])}'
