@@ -2,6 +2,8 @@ import random
 
 from collections import deque
 
+import numpy as np
+
 from src.individual import Individual
 from src.sex import Sex
 
@@ -18,7 +20,7 @@ class Population:
     MINIMUM_INITIAL_AGE = 0
     MAXIMUM_INITIAL_AGE = 0
     MEAN_INITIAL_AGE = 0
-    STD_DEV_INITIAL_AGE = 0
+    SD_INITIAL_AGE = 0
 
     POTENTIAL_PARTNER_COUNT = 0
     MAXIMUM_AGE_DIFFERENCE = 0
@@ -48,14 +50,15 @@ class Population:
         }
 
     #region auto-populating
+
     @classmethod
     def auto_populated(cls) -> 'Population':
 
-        def random_age():
-            age = -1
-            while age < cls.MINIMUM_INITIAL_AGE or age > cls.MAXIMUM_INITIAL_AGE:
-                age = int(random.gauss(cls.MEAN_INITIAL_AGE, cls.STD_DEV_INITIAL_AGE))
-            return age
+        def random_age() -> int:
+            while True:
+                age = random.gauss(cls.MEAN_INITIAL_AGE, cls.SD_INITIAL_AGE)
+                if cls.MINIMUM_INITIAL_AGE <= age <= cls.MAXIMUM_INITIAL_AGE:
+                    return int(age)
 
         def random_individual():
             return Individual(
@@ -70,6 +73,8 @@ class Population:
 
         for i in range(cls.INITIAL_INFECTIONS):
             population.population[i].infect()
+
+        population.set_yearly_count()
 
         return population
 
@@ -146,7 +151,6 @@ class Population:
                         second.partner = first
                         self.yearly_info[self.year]['new_relationships'] += 1
 
-
         for individual in self.population:
             result = individual.live_year(self.population)
 
@@ -158,12 +162,26 @@ class Population:
 
             self.yearly_info[self.year]['death_count'] += 1 if result['died'] else 0
 
-        self.yearly_info[self.year]['count_by_age_bin']['0-19'] = self.count_in_pop(lambda x: 0 <= x.age < 20)
-        self.yearly_info[self.year]['count_by_age_bin']['20-39'] = self.count_in_pop(lambda x: 20 <= x.age < 40)
-        self.yearly_info[self.year]['count_by_age_bin']['40-59'] = self.count_in_pop(lambda x: 40 <= x.age < 60)
-        self.yearly_info[self.year]['count_by_age_bin']['60-79'] = self.count_in_pop(lambda x: 60 <= x.age < 80)
-        self.yearly_info[self.year]['count_by_age_bin']['80-99'] = self.count_in_pop(lambda x: 80 <= x.age < 100)
-        self.yearly_info[self.year]['count_by_age_bin']['100+'] = self.count_in_pop(lambda x: x.age > 100)
+        self.set_yearly_count()
+
+    def set_yearly_count(self):
+        self.yearly_info[self.year]['count_by_age_bin']['0-19'] = self.count_in_pop(lambda x: 0 <= x.age < 20 and x.alive)
+        self.yearly_info[self.year]['count_by_age_bin']['20-39'] = self.count_in_pop(lambda x: 20 <= x.age < 40 and x.alive)
+        self.yearly_info[self.year]['count_by_age_bin']['40-59'] = self.count_in_pop(lambda x: 40 <= x.age < 60 and x.alive)
+        self.yearly_info[self.year]['count_by_age_bin']['60-79'] = self.count_in_pop(lambda x: 60 <= x.age < 80 and x.alive)
+        self.yearly_info[self.year]['count_by_age_bin']['80-99'] = self.count_in_pop(lambda x: 80 <= x.age < 100 and x.alive)
+        self.yearly_info[self.year]['count_by_age_bin']['100+'] = self.count_in_pop(lambda x: x.age > 100 and x.alive)
+
+    def yearly_population_to_ndarray(self):
+        years = sorted(self.yearly_info.keys())
+        age_bins = ['0-19', '20-39', '40-59', '60-79', '80-99', '100+']
+
+        data = []
+        for year in years:
+            year_data = [self.yearly_info[year]['count_by_age_bin'][bin] for bin in age_bins]
+            data.append(year_data)
+
+        return np.array(data)
 
     #endregion
 
@@ -234,5 +252,3 @@ class Population:
         print(self.__repr__())
 
     #endregion
-
-
