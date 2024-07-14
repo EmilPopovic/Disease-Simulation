@@ -94,7 +94,7 @@ class Population:
         while queue:
             current, distance = queue.popleft()
 
-            for parent in [ind1.parent1, ind1.parent2]:
+            for parent in [current.parent1, current.parent2]:
                 if parent and parent not in visited:
                     if parent == ind2:
                         return distance + 1
@@ -104,7 +104,7 @@ class Population:
                     if max_depth < 0 or distance + 1 <= max_depth:
                         queue.append((parent, distance + 1))
 
-            for child in ind1.children:
+            for child in current.children:
                 if child not in visited:
                     if child == ind2:
                         return distance + 1
