@@ -1,8 +1,10 @@
 import random
 
 from collections import deque
+from typing import Any
 
 import numpy as np
+from numpy import ndarray, dtype
 
 from src.individual import Individual
 from src.sex import Sex
@@ -30,7 +32,7 @@ class Population:
 
     #endregion
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.population: list[Individual] = []
         self.yearly_info = {
             0: {
@@ -60,7 +62,7 @@ class Population:
                 if cls.MINIMUM_INITIAL_AGE <= age <= cls.MAXIMUM_INITIAL_AGE:
                     return int(age)
 
-        def random_individual():
+        def random_individual() -> Individual:
             return Individual(
                 random_age(),
                 Sex.random_sex(),
@@ -116,7 +118,7 @@ class Population:
 
         return -1
 
-    def advance_sim(self):
+    def advance_sim(self) -> None:
         Population.year += 1
 
         single: list[Individual] = self.filter_pop(
@@ -135,9 +137,9 @@ class Population:
             'count_by_age_bin': {}
         }
 
-        for i, first in enumerate(single):
-            for j, second in enumerate(random.sample(single, min(Population.POTENTIAL_PARTNER_COUNT, len(single)))):
-                if i == j or first.partner or second.partner:
+        for first in single:
+            for second in random.sample(single, min(Population.POTENTIAL_PARTNER_COUNT, len(single))):
+                if first == second or first.partner or second.partner:
                     continue
 
                 distance = self.distance(first, second, Population.MINIMUM_INCEST_DISTANCE)
@@ -164,7 +166,7 @@ class Population:
 
         self.set_yearly_count()
 
-    def set_yearly_count(self):
+    def set_yearly_count(self) -> None:
         self.yearly_info[self.year]['count_by_age_bin']['0-19'] = self.count_in_pop(lambda x: 0 <= x.age < 20 and x.alive)
         self.yearly_info[self.year]['count_by_age_bin']['20-39'] = self.count_in_pop(lambda x: 20 <= x.age < 40 and x.alive)
         self.yearly_info[self.year]['count_by_age_bin']['40-59'] = self.count_in_pop(lambda x: 40 <= x.age < 60 and x.alive)
@@ -172,13 +174,13 @@ class Population:
         self.yearly_info[self.year]['count_by_age_bin']['80-99'] = self.count_in_pop(lambda x: 80 <= x.age < 100 and x.alive)
         self.yearly_info[self.year]['count_by_age_bin']['100+'] = self.count_in_pop(lambda x: x.age > 100 and x.alive)
 
-    def yearly_population_to_ndarray(self):
+    def yearly_population_to_ndarray(self) -> ndarray[Any, dtype[Any]]:
         years = sorted(self.yearly_info.keys())
         age_bins = ['0-19', '20-39', '40-59', '60-79', '80-99', '100+']
 
         data = []
         for year in years:
-            year_data = [self.yearly_info[year]['count_by_age_bin'][bin] for bin in age_bins]
+            year_data = [self.yearly_info[year]['count_by_age_bin'][age_bin] for age_bin in age_bins]
             data.append(year_data)
 
         return np.array(data)
@@ -245,7 +247,7 @@ class Population:
         print(f'  breakup count: {self.yearly_info[year]['breakup_count']}')
         print()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'Population:\n{'\n'.join([f'  {individual}' for individual in self.population])}'
 
     def print(self) -> None:

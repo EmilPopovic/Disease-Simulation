@@ -1,5 +1,7 @@
 import random
 
+from typing import Optional
+
 from sex import Sex
 
 
@@ -47,9 +49,9 @@ class Individual:
 
         self.children: list['Individual'] = []
 
-        self.partner: 'Individual' = None
+        self.partner: Optional['Individual'] = None
 
-        self.year_of_birth: int = None
+        self.year_of_birth: int = year_of_birth
 
     #region behaviour
 

@@ -1,5 +1,5 @@
 import numpy as np
-import pylab as plt
+import matplotlib.pylab as plt
 
 from src.individual import Individual
 from src.population import Population
@@ -33,19 +33,15 @@ Population.MINIMUM_INCEST_DISTANCE = 2
 ITERATIONS = 1000
 
 
-def main():
+def main() -> None:
     pop: Population = Population.auto_populated()
-
-    #pop.print()
 
     pop.print_stats('Initial population stats')
 
     for i in range(ITERATIONS):
         pop.advance_sim()
-        #pop.print_yearly_stats(pop.year)
 
     pop.print_stats('Final population stats')
-
 
     x = np.arange(0, ITERATIONS + 1, 1)
 
@@ -53,29 +49,33 @@ def main():
 
     total_population = pop_data
 
-    plt.subplot(2, 2, 1)
+    plt.subplot(2, 1, 1)
     plt.stackplot(
         x,
         *total_population,
         baseline='zero',
         labels=['0-19', '20-39', '40-59', '60-79', '80-99', '100+']
     )
-    plt.title('Total population by age bin')
+    plt.title('Simulation results')
+    plt.ylabel('Total population by age bin')
     plt.axis('tight')
+    plt.xlim(0, ITERATIONS + 1)
     plt.legend(loc='upper right')
 
     norm_population = pop_data / pop_data.sum(axis=0, keepdims=True) * 100
 
-    plt.subplot(2, 2, 2)
+    plt.subplot(2, 1, 2)
     plt.stackplot(
         x,
         *norm_population,
         baseline='zero',
         labels=['0-19', '20-39', '40-59', '60-79', '80-99', '100+']
     )
-    plt.title('Normalized population by age bin')
+    plt.ylabel('Normalized population by age bin')
+    plt.xlabel('time')
     plt.axis('tight')
     plt.ylim(0, 100)
+    plt.xlim(0, ITERATIONS + 1)
     plt.legend(loc='upper right')
 
 
